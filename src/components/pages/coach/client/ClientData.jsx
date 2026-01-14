@@ -27,21 +27,65 @@ import { customMealDailyPDFData } from "@/lib/pdf";
 import { youtubeVideoId } from "@/lib/utils";
 import { useAppSelector } from "@/providers/global/hooks";
 import { format } from "date-fns";
-import { BarChart2, Bot, Briefcase, CalendarIcon, Clock, Dumbbell, Eye, FileDown, FileText, Flag, MoreVertical, ShoppingBag, Users, Utensils } from "lucide-react";
+import { BarChart2, Bot, Briefcase, CalendarIcon, Clock, Dumbbell, Eye, FileDown, FileText, Flag, MoreVertical, ShoppingBag, TrendingUp, Users, Utensils } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
 import PDFRenderer from "@/components/modals/PDFRenderer";
 import DisplayClientQuestionaire from "../questionaire/display/DisplayClientQuestionaire";
 import Loader from "@/components/common/Loader";
+import { ChartContainer } from "@/components/ui/chart";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+const ADHERENCE_SCORE_RANGES = [
+  {
+    label: "Excellent",
+    min: 80,
+    max: 100,
+    description: "You’re consistently performing at the top level and mastering your skills.",
+  },
+  {
+    label: "Good",
+    min: 60,
+    max: 79,
+    description: "You have a solid grasp and are on the right track, with room to improve.",
+  },
+  {
+    label: "Average",
+    min: 40,
+    max: 59,
+    description: "You’re doing okay, but there are key areas that need more focus.",
+  },
+  {
+    label: "Below Average",
+    min: 20,
+    max: 39,
+    description: "You may be struggling in some areas and should consider extra practice.",
+  },
+  {
+    label: "Poor",
+    min: 0,
+    max: 19,
+    description: "Significant improvement is needed; it’s time to reassess your approach and strategy.",
+  },
+];
+
+const GAUGE_RADIUS = 90;
+const GAUGE_LENGTH = Math.PI * GAUGE_RADIUS;
 
 const tabItems = [
   { icon: <Utensils className="w-[16px] h-[16px]" />, value: "meal", label: "Meal" },
   { icon: <CalendarIcon className="w-[16px] h-[16px]" />, value: "appointment", label: "Appointment" },
+  { icon: <Briefcase className="w-[16px] h-[16px]" />, value: "adherence", label: "Adherence", },
 ]
+
+function getAdherenceRangeForScore(score) {
+  return ADHERENCE_SCORE_RANGES.find(range => score >= range.min) || ADHERENCE_SCORE_RANGES[ADHERENCE_SCORE_RANGES.length - 1];
+}
 
 export default function ClientData({ clientData }) {
   const router = useRouter();
@@ -57,12 +101,16 @@ export default function ClientData({ clientData }) {
     newParams.set("tab", value);
     router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
   };
+  console.log(clientData)
   return <div className="bg-white h-auto px-2 py-4 md:p-4 rounded-[18px] border-1">
     <Tabs defaultValue={selectedTab} onValueChange={tabChange}>
       <Header />
       <ClientMealData _id={clientData._id} client={clientData} />
       <TabsContent value="appointment">
         <AppointmentTab clientId={clientData._id} />
+      </TabsContent>
+      <TabsContent value="adherence">
+        <ClientAdherenceScore clientId={clientData.clientId} />
       </TabsContent>
     </Tabs>
   </div>
@@ -399,4 +447,328 @@ function AppointmentTab({ clientId }) {
     </Card>
     )}
   </div>
+}
+
+function ClientAdherenceScore({ clientId }) {
+  const [date, setDate] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10 });
+  const [isHistoryModalOpen, setHistoryModalOpen] = useState(false);
+
+  const endpoint = useMemo(() => `app/client/adherence-score?person=coach&clientId=${clientId}`, [clientId])
+  const { isLoading, error, data, mutate } = useSWR(
+    endpoint, () => fetchData(endpoint)
+  );
+
+
+  const adherenceData = data?.data || {};
+  const currentScore = adherenceData.adherenceScore;
+  let history = adherenceData.adherenceScoreHistory || [];
+
+  const formatDateHelper = (dateValue) => {
+    if (!dateValue) return "";
+    try {
+      const dateObj = new Date(dateValue);
+      if (isNaN(dateObj.getTime())) {
+        if (typeof dateValue === "string" && dateValue.match(/^\d{2}-\d{2}-\d{4}$/)) {
+          return dateValue;
+        }
+        return dateValue;
+      }
+      return format(dateObj, "dd-MM-yyyy");
+    } catch {
+      return dateValue;
+    }
+  };
+
+  // Filter by date if selected
+  if (date) {
+    history = history.filter(item => {
+      const itemDate = formatDateHelper(item.date);
+      return itemDate === date;
+    });
+  }
+
+  const handleDatePickerChange = (newDate) => {
+    setDate(newDate);
+    setPagination(prev => ({ page: 1, limit: prev.limit }));
+  };
+
+  const clearDateFilter = () => {
+    setDate(null);
+    setPagination(prev => ({ page: 1, limit: prev.limit }));
+  };
+
+  const parsedScore = parseFloat(currentScore);
+  const hasScore = Number.isFinite(parsedScore);
+  const normalizedScore = hasScore ? Math.min(Math.max(parsedScore, 0), 100) : 0;
+  const targetRatio = hasScore ? normalizedScore / 100 : 0;
+  const gradientId = useMemo(() => `adherence-gradient-${clientId}`, [clientId]);
+  const [animatedRatio, setAnimatedRatio] = useState(0);
+  const animationStartRef = useRef(null);
+  const activeRange = hasScore ? getAdherenceRangeForScore(normalizedScore) : null;
+
+  useEffect(() => {
+    animationStartRef.current = null;
+    let frame;
+    const duration = 1200;
+    const animate = (timestamp) => {
+      if (animationStartRef.current === null) {
+        animationStartRef.current = timestamp;
+      }
+      const elapsed = timestamp - animationStartRef.current;
+      const progress = Math.min(elapsed / duration, 1);
+      setAnimatedRatio(progress * targetRatio);
+      if (progress < 1) {
+        frame = requestAnimationFrame(animate);
+      }
+    };
+    frame = requestAnimationFrame(animate);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      animationStartRef.current = null;
+    };
+  }, [targetRatio]);
+
+  // Prepare chart data
+  const chartData = useMemo(() => {
+    if (!history || history.length === 0) return [];
+
+    // Sort by date
+    const sortedHistory = [...history].sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateA - dateB;
+    });
+
+    return sortedHistory.map((item, index) => ({
+      date: formatDateHelper(item.date),
+      score: parseFloat(item.score) || 0,
+      fullDate: item.date
+    }));
+  }, [history]);
+
+  const getScoreColor = (label) => {
+    switch (label) {
+      case "Excellent": return "text-emerald-600";
+      case "Good": return "text-green-600";
+      case "Average": return "text-yellow-600";
+      case "Below Average": return "text-orange-600";
+      case "Poor": return "text-red-600";
+      default: return "text-gray-600";
+    }
+  };
+
+  if (isLoading) return <Loader />
+
+  if (error || !data || data?.status_code !== 200) return <div>
+    <Button onClick={mutate}>Retry</Button>
+    {error?.message || data?.message || "Error loading data"}
+  </div>
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-2xl font-bold text-[var(--dark-1)] mb-1">Adherence Score</h3>
+          <p className="text-sm text-muted-foreground">
+            Track your progress and consistency over time
+          </p>
+        </div>
+        <Dialog open={isHistoryModalOpen} onOpenChange={setHistoryModalOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <TrendingUp className="h-4 w-4" />
+              View History
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogTitle className="text-xl font-bold mb-4">Adherence Score History</DialogTitle>
+            {chartData.length > 0 ? (
+              <div className="space-y-6">
+                <div className="h-80 w-full">
+                  <ChartContainer
+                    config={{
+                      score: {
+                        label: "Adherence Score",
+                        color: "hsl(var(--chart-1))",
+                      },
+                    }}
+                    className="h-full w-full"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="rgb(59, 130, 246)" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="rgb(59, 130, 246)" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 12 }}
+                          angle={-45}
+                          textAnchor="end"
+                          height={80}
+                        />
+                        <YAxis
+                          domain={[0, 100]}
+                          tick={{ fontSize: 12 }}
+                          label={{ value: 'Score', angle: -90, position: 'insideLeft' }}
+                        />
+                        <Tooltip
+                          formatter={(value) => [`${value.toFixed(1)}`, "Score"]}
+                          contentStyle={{
+                            backgroundColor: "white",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="score"
+                          stroke="rgb(59, 130, 246)"
+                          strokeWidth={3}
+                          fill="url(#scoreGradient)"
+                          dot={{ fill: "rgb(59, 130, 246)", strokeWidth: 2, r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </div>
+                <div className="border-t pt-4">
+                  <div className="max-h-64 overflow-auto rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead className="text-right">Score</TableHead>
+                          <TableHead className="text-right">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {chartData.slice().reverse().map((item, index) => {
+                          const range = getAdherenceRangeForScore(item.score);
+                          return (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{item.date}</TableCell>
+                              <TableCell className="text-right font-semibold">{item.score.toFixed(1)}</TableCell>
+                              <TableCell className="text-right">
+                                <Badge variant="outline" className={getScoreColor(range?.label)}>
+                                  {range?.label || "N/A"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <p className="text-muted-foreground">No history data available yet</p>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Main Score Card */}
+      <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-200 rounded-2xl p-8 shadow-sm">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+          {/* Gauge Section */}
+          <div className="flex-1 max-w-md">
+            <div className="flex flex-col items-center space-y-6">
+              {/* Gauge */}
+              <div className="relative w-full max-w-[320px] h-32">
+                <svg viewBox="0 0 220 120" className="h-full w-full">
+                  <defs>
+                    <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#10b981" />
+                      <stop offset="50%" stopColor="#3b82f6" />
+                      <stop offset="100%" stopColor="#8b5cf6" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M20 110 A 90 90 0 0 1 200 110"
+                    fill="transparent"
+                    stroke="rgba(0,0,0,0.08)"
+                    strokeWidth="18"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M20 110 A 90 90 0 0 1 200 110"
+                    fill="transparent"
+                    stroke={`url(#${gradientId})`}
+                    strokeWidth="18"
+                    strokeLinecap="round"
+                    strokeDasharray={GAUGE_LENGTH.toFixed(2)}
+                    strokeDashoffset={(GAUGE_LENGTH * (1 - animatedRatio)).toFixed(2)}
+                    style={{ transition: "stroke-dashoffset 0.3s ease-out" }}
+                  />
+                </svg>
+              </div>
+
+              {/* Score */}
+              <div className="flex flex-col items-center">
+                <p className={`text-6xl font-bold ${getScoreColor(activeRange?.label)} mb-4`}>
+                  {hasScore ? normalizedScore.toFixed(0) : "N/A"}
+                </p>
+                <Badge
+                  variant="outline"
+                  className={`text-base font-semibold px-4 py-2 ${getScoreColor(activeRange?.label)} border-current`}
+                >
+                  {activeRange?.label ?? "No Data"}
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Score Details Section */}
+          <div className="flex-1 space-y-6">
+            <div>
+              <h4 className="text-lg font-semibold text-[var(--dark-1)] mb-4">Score Breakdown</h4>
+              <div className="space-y-3">
+                {ADHERENCE_SCORE_RANGES.map(range => (
+                  <div
+                    key={range.label}
+                    className={`p-3 rounded-lg border-2 transition-colors ${range.label === activeRange?.label
+                      ? "border-primary bg-primary/5"
+                      : "border-transparent bg-slate-50 hover:bg-slate-100"
+                      }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`font-semibold text-sm ${range.label === activeRange?.label
+                            ? getScoreColor(range.label)
+                            : "text-slate-700"
+                            }`}>
+                            {range.label}
+                          </span>
+                          {range.label === activeRange?.label && (
+                            <Badge variant="outline" className="text-xs">Current</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {range.description}
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
+                        {range.min}-{range.max}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
