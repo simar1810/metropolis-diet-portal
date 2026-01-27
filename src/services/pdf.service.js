@@ -1,13 +1,52 @@
 import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
+import sharp from "sharp";
+import { compress } from "compress-pdf";
 
 export class PdfService {
-  static LOGO_BASE64 = `data:image/png;base64,${fs.readFileSync(path.join(process.cwd(), "public", "image 130.png")).toString("base64")}`;
-  static PLACEHOLDER_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOEAAADhCAMAAAAJbSJIAAAAOVBMVEXz9Pa5vsq2u8jN0dnV2N/o6u7w8fTi5OnFydO+ws3f4ee6v8vY2+H29/jy9Pbu7/LJztbCx9HR1ty/NMEIAAACq0lEQVR42u3cYXaqMBBA4cyEgEAi4P4X+34oLSra9IA9E979FtDj7SAJUOocAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAqrQ3Y311iH5fsaktBTYn3d/Y2JljlM/orAR2IsdOHNqPFbY2TqKdXj/Orl/C24/sLHwV0ygiIv2466n0+kNlNFHYiohotfNyWKmIyKm2U9jsffqyU+gopLDMwiGE+sCFjRdV1SkOxyw8X2Rer6cNe2e7hfVJv3ddGg9YeNHlxrIPhyvs9GHvXB+sMJ2eLoDSsQrDwwhF/cFm+HiQikxvP+Prk63RwhSfCtt3i6J/fbK1Wlj9qvCiIjEd9yg9e32zZFotHPLPNOd55VyfotnVYsq9XVZ7fbvxsbviZx6kZ7+Y9toU7e7a/P1x+mI5qP3doRyLuraYlokxY4LrUzRcOPj56knaxmVMcP1XYfkKODW+VVWZqiHlTXBtisbvYgwhhKF22RNcmWLBd6JWJ/g8xXIL64u+eg5zl1huodfXj5riAQrPF333NG0xxVILvb5/YBhLKxzC8+XSD4mpqMLQt2F59hj158e+saDCFFrRacj9Dj5MsYTC0IuIfk9xzAoU7QopTKG93dq/7d3yJiiiVSqjMPTzJ25Dcu6cOUERjUUUzhP8mmLuBIsp/Jrg9Soq+OzAMgqXE7wm/uKvhIoovJ/gLxVQ+DTBwxVummABhRsnWEDhxgmaL9w8QfOFmydovTDlb11KLawopJBCCimk8E8Kbd+nGcJ2Q9F39fNRSKH5wtSZeyvI7/sm8O053MnCCOc/C/7Iu2vexIuyn3z/sLEQ6Orp4O+QOtf0HwrsGyOFrhP9QJ+qmUDnwtju/jp+PwZT/1chdNW+YuMAAAAAAAAAAAAAAAAAAAAAAAAAAACA/9s/LTI30XlcBHoAAAAASUVORK5CYII="
+  static LOGO_BASE64 = null;
+  static QR_CODE_BASE64 = null;
+  static PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100' height='100' fill='%23e5e7eb'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='12'%3ENo Image%3C/text%3E%3C/svg%3E";
   static CLOCK_ICON_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 6V12L16 14" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  static QR_CODE_BASE64 = `data:image/png;base64,${fs.readFileSync(path.join(process.cwd(), "public", "Untitled design (4).png")).toString("base64")}`;
 
+  static async initImages() {
+    if (!this.LOGO_BASE64) {
+      try {
+        const logoBuffer = await sharp(path.join(process.cwd(), "public", "image 130.png"))
+          .resize(250, null, { withoutEnlargement: true })
+          .png({ compressionLevel: 9, palette: true })
+          .toBuffer();
+        this.LOGO_BASE64 = `data:image/png;base64,${logoBuffer.toString("base64")}`;
+      } catch (error) {
+        console.error("Error loading logo:", error);
+        try {
+          const originalLogo = fs.readFileSync(path.join(process.cwd(), "public", "image 130.png"));
+          this.LOGO_BASE64 = `data:image/png;base64,${originalLogo.toString("base64")}`;
+        } catch (e) {
+          this.LOGO_BASE64 = this.PLACEHOLDER_IMAGE;
+        }
+      }
+    }
+
+    if (!this.QR_CODE_BASE64) {
+      try {
+        const qrBuffer = await sharp(path.join(process.cwd(), "public", "Untitled design (4).png"))
+          .resize(150, 150, { fit: 'inside' })
+          .png({ compressionLevel: 9 })
+          .toBuffer();
+        this.QR_CODE_BASE64 = `data:image/png;base64,${qrBuffer.toString("base64")}`;
+      } catch (error) {
+        console.error("Error loading QR code:", error);
+        try {
+          const originalQr = fs.readFileSync(path.join(process.cwd(), "public", "Untitled design (4).png"));
+          this.QR_CODE_BASE64 = `data:image/png;base64,${originalQr.toString("base64")}`;
+        } catch (e) {
+          this.QR_CODE_BASE64 = this.PLACEHOLDER_IMAGE;
+        }
+      }
+    }
+  }
 
   static MEAL_PRIORITY_ORDER = [
     "when_you_wake_up", "wake_up", "wakeup", "pre_wakeup",
@@ -225,17 +264,17 @@ export class PdfService {
         fats ? `<li><strong>Fats:</strong> ${fats}</li>` : "",
       ].filter(Boolean).join("");
 
-      const imgWidth = '160px';
-      const imgHeight = '120px';
-      const borderRadius = '12px';
-      const metaPadding = isGrid ? '10px' : '15px';
-      const metaFontSize = isGrid ? '15px' : '17px';
+      const imgWidth = '100px';
+      const imgHeight = '75px';
+      const borderRadius = '8px';
+      const metaPadding = isGrid ? '8px' : '12px';
+      const metaFontSize = isGrid ? '14px' : '16px';
 
       const img = dish.image
         ? `<div style="width: ${imgWidth}; height: ${imgHeight}; background-color: #e5e7eb; border-radius: ${borderRadius}; overflow: hidden; flex-shrink: 0;">
-             <img src="${PdfService.escapeHtml(String(dish.image))}" alt="${name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.src='${this.PLACEHOLDER_IMAGE}';" />
+             <img src="${PdfService.escapeHtml(String(dish.image))}" alt="${name}" style="width: ${imgWidth}; height: ${imgHeight}; max-width: ${imgWidth}; max-height: ${imgHeight}; object-fit: cover; image-rendering: -webkit-optimize-contrast;" onerror="this.onerror=null; this.src='${PdfService.PLACEHOLDER_IMAGE}';" />
            </div>`
-        : `<div style="width: ${imgWidth}; height: ${imgHeight}; background-color: #e5e7eb; border-radius: ${borderRadius}; overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 14px;">NO IMAGE</div>`;
+        : `<div style="width: ${imgWidth}; height: ${imgHeight}; background-color: #e5e7eb; border-radius: ${borderRadius}; overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 12px;">NO IMAGE</div>`;
 
       if (!isGrid) {
 
@@ -558,9 +597,21 @@ export class PdfService {
   }
 
   static async generateMealPlanPdfBuffer(payload) {
+    await PdfService.initImages();
     const daySections = await PdfService.buildDaySections(payload);
     const pdfBuffer = await PdfService.buildPdfBuffer(payload, daySections);
-    return pdfBuffer;
+
+    try {
+      const compressedBuffer = await compress(pdfBuffer, {
+        resolution: "ebook",
+        compatibilityLevel: "1.4",
+        pdfPassword: ""
+      });
+      return compressedBuffer;
+    } catch (error) {
+      console.error("PDF compression failed, returning original buffer:", error?.message || error);
+      return pdfBuffer;
+    }
   }
 
   static buildPlanTablePayload(payload) {
@@ -701,18 +752,48 @@ export class PdfService {
   static async buildPdfBuffer(payload, daySections) {
     const htmlContent = PdfService.generateFullHtml(payload, daySections);
     const browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+        '--force-device-scale-factor=0.75'
+      ],
       headless: true
     });
 
     try {
       const page = await browser.newPage();
-      await page.setContent(htmlContent, { waitUntil: 'load', timeout: 60000 });
+
+      await page.setViewport({
+        width: 1200,
+        height: 1600,
+        deviceScaleFactor: 0.75
+      });
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        const resourceType = request.resourceType();
+        const url = request.url();
+        if (resourceType === 'font') {
+          request.abort();
+        } else if (['document', 'stylesheet', 'image'].includes(resourceType)) {
+          request.continue();
+        } else {
+          request.abort();
+        }
+      });
+
+      await page.setContent(htmlContent, { waitUntil: 'networkidle2', timeout: 60000 });
 
       const pdf = await page.pdf({
         format: 'A4',
         printBackground: true,
         displayHeaderFooter: true,
+        preferCSSPageSize: false,
+        scale: 0.85, // Optimized scale - smaller file, readable content
+        // Optimize for smaller file size
+        tagged: false, // Don't generate tagged PDF (reduces size)
         headerTemplate: `
           <div style="width: 100%; display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 3px solid #4CAF50; margin-bottom: 15px; margin-left: 20px; margin-right: 20px; background-color: white; -webkit-print-color-adjust: exact; padding-top: 10px;">
             <div style="max-width: 70%;">
@@ -1199,6 +1280,11 @@ export class PdfService {
             --text-dark: #1b1b1b;
             --bg-alt: #ffffff;
                     }
+            img { 
+              max-width: 100px;
+              max-height: 75px;
+              image-rendering: -webkit-optimize-contrast;
+            }
             body {
               margin: 0;
             padding: 0;
