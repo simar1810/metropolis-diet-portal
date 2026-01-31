@@ -101,7 +101,6 @@ export default function ClientData({ clientData }) {
     newParams.set("tab", value);
     router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
   };
-  console.log(clientData)
   return <div className="bg-white h-auto px-2 py-4 md:p-4 rounded-[18px] border-1">
     <Tabs defaultValue={selectedTab} onValueChange={tabChange}>
       <Header />

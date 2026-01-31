@@ -215,7 +215,7 @@ function CustomMealMetaData({ customPlan }) {
         variant="icon">
         <Download />
       </Button>}
-      {pdfSent && <SendPDFViaWhatsapp
+      {!pdfSent && <SendPDFViaWhatsapp
         clientId={customPlan?.clients?.at(0)?._id}
         pdf={pdfFile}
       />}
@@ -492,7 +492,7 @@ export function DisplayMealStats({ meals: { plans = {} } = {} }) {
     }
     return arr;
   }, [plans])
-
+  console.log(allMeals)
   const totals = useMemo(() => {
     return allMeals.reduce(
       (acc, meal) => {
@@ -647,22 +647,37 @@ function parsePlanTotals(description, key) {
   return match ? parseInt(match[1]) : 0;
 }
 
+/*
+  *curl --location 'http://localhost:8080/api/app/metropolis/whatsapp/generate-share-pdf' \
+--header 'Content-Type: application/json' \
+--data '{
+    "clientId": "697c8cee21f03dbc8017018f",
+    "mealPlanId": "697cbbb753427544fbc6f08c"
+}'
+  * */
 function SendPDFViaWhatsapp({ clientId, pdf }) {
-  async function sendMealPlanPdfViaWhatsapp() {
+  const { id } = useParams()
+  async function sendMealPlanPdfViaWhatsapp(setLoading) {
+    const toastId = toast.loading("The meal plan creation and delivery process is currently in progress")
     try {
-      const formData = new FormData()
-      formData.append("clientId", clientId)
-      formData.append("file", pdf)
-      const response = await sendDataWithFormData("app/metropolis/whatsapp/share-pdf", formData);
+      setLoading(true)
+      const formData = {
+        clientId,
+        mealPlanId: id
+      }
+      const response = await sendData("app/metropolis/whatsapp/generate-share-pdf", formData);
       if (response.status_code !== 200) throw new Error(response.message)
       toast.success(response.message || "Successfully sent pdf.");
     } catch (error) {
       toast.error(error.message || "Something went wrong.")
+    } finally {
+      setLoading(false)
     }
+    toast.dismiss(toastId)
   }
 
   return <DualOptionActionModal
-    description="You are deleting the note!"
+    description="Are you sure to send the pdf on whatsapp?"
     action={(setLoading, btnRef) => sendMealPlanPdfViaWhatsapp(setLoading, btnRef)}
   >
     <AlertDialogTrigger>
