@@ -16,7 +16,7 @@ export default function GenderDobForm() {
     }))
   }
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-600 to-lime-400 flex justify-center px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br flex justify-center px-4 py-8">
       <div className="w-full max-w-md">
         <h2 className="text-xl font-semibold">What is your sex?</h2>
         <p className="mt-1 text-sm opacity-90">

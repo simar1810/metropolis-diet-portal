@@ -1,6 +1,6 @@
 export const buildClientOnboardingIS = function () {
   return {
-    stage: "preferences", // mobilenumber, goal, gender-dob, exercise-activity, conditions-allergies
+    stage: "mobilenumber", // mobilenumber, goal, gender-dob, exercise-activity, conditions-allergies
 
     firstName: "",
     lastName: "",
@@ -17,8 +17,7 @@ export const buildClientOnboardingIS = function () {
     medicalConditions: [],
     allergies: [],
     dietPreferences: "",
-    countryPreferences: "",
-    regionalPreferences: "",
-    regionalPreferences: "",
+    countryPreference: "",
+    regionPreference: "",
   }
 }

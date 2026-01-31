@@ -11,7 +11,7 @@ export default function GoalStage({ }) {
   const [selected, onSelect] = useState(goal)
   const handleNext = function () {
     dispatch(updateDetails({
-      goal,
+      goal: selected,
       stage: "gender-dob"
     }))
   }

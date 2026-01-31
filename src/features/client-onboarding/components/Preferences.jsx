@@ -10,10 +10,11 @@ import { Label } from "@/components/ui/label";
 import { convertHeight, convertWeight } from "../state/lib";
 import { toast } from "sonner";
 import { sendData } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 export default function Preferences() {
   const {
-    dietPreference: defaultPreferences,
+    dietPreferences: defaultPreferences,
     height: defaultHeight,
     weight: defaultWeight,
     heightUnit: defaultHeightUnit,
@@ -61,22 +62,31 @@ export default function Preferences() {
     return weight?.replace(/[^\d.]/g, "").trim() || "";
   }, [weight]);
 
-  const handleNext = function () {
-    dispatch(updateDetails({
-      dietPreference: preferences,
-      height,
-      heightUnit,
-      weight,
-      weightUnit,
-    }))
-  }
-
   async function createUser() {
     try {
-      const payload = createRequestPayload(state)
-      const response = await sendData("app/metropolis/create-user", payload)
-      console.log(response)
-      toast.success(response.message || "Something went wrong")
+      const customCreationToastId = toast.loading("Creating Customer")
+
+      const preferencesData = createRequestPayload({
+        ...state,
+        preferences,
+        height,
+        heightUnit,
+        weight,
+        weightUnit,
+      })
+
+      const createCustomerResponse = await sendData(
+        "app/metropolis/new-client",
+        {
+          firstName: state.firstName,
+          name: state.lastName,
+          mobileNumber: state.mobileNumber,
+          preferences: preferencesData
+        }
+      )
+      toast.dismiss(customCreationToastId)
+      if (createCustomerResponse.status_code !== 200) throw new Error(createCustomerResponse.message)
+      window.location.href = "/coach/clients"
     } catch (error) {
       toast.error(error.message || "Something went wrong!");
     }
@@ -161,7 +171,11 @@ export default function Preferences() {
           </div>
         </div>
       </div>
-      <NextButton handler={handleNext} />
+      <Button
+        variant="wz"
+        onClick={createUser}
+      >Save</Button>
+      {/* <NextButton handler={handleNext} /> */}
     </div>
   );
 }

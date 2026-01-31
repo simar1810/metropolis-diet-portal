@@ -37,7 +37,38 @@ export const DIET_PREFERENCES = [
 ];
 
 export const GENDERS = [
-  { label: 'Male', value: 'male', icon: '♂' },
-  { label: 'Female', value: 'female', icon: '♀' },
-  { label: 'Other', value: 'other', icon: '⚧' },
+  { label: 'Male', value: 'Male', icon: '♂' },
+  { label: 'Female', value: 'Female', icon: '♀' },
+  { label: 'Other', value: 'Other', icon: '⚧' },
 ]
+
+export const STATES = [
+  'Andhra Pradesh',
+  'Arunachal Pradesh',
+  'Assam',
+  'Bihar',
+  'Chhattisgarh',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Manipur',
+  'Meghalaya',
+  'Mizoram',
+  'Nagaland',
+  'Odisha',
+  'Punjab',
+  'Rajasthan',
+  'Sikkim',
+  'Tamil Nadu',
+  'Telangana',
+  'Tripura',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal'
+];

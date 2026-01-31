@@ -19,7 +19,7 @@ export default function ConditionsAllergies() {
     dispatch(updateDetails({
       allergies: currentAllergies,
       medicalConditions: currentConditions,
-      stage: "preferences"
+      stage: "region-selection"
     }))
   }
 

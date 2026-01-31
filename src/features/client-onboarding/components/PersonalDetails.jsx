@@ -27,12 +27,12 @@ const validateDetails = (details) => {
 }
 
 export default function PersonalDetails() {
-  const { dispatch } = useCurrentStateContext()
+  const { dispatch, ...state } = useCurrentStateContext()
   const [errors, setErrors] = useState({})
   const [details, setDetails] = useState({
-    firstName: "",
-    lastName: "",
-    mobileNumber: ""
+    firstName: state.firstName,
+    lastName: state.lastName,
+    mobileNumber: state.mobileNumber
   })
 
   const handleNext = function () {
