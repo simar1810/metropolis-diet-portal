@@ -15,7 +15,6 @@ import { sendData, uploadImage } from "@/lib/api";
 import { useSWRConfig } from "swr";
 import { useRouter } from "next/navigation";
 import { _throwError, format24hr_12hr } from "@/lib/formatter";
-import { SquarePen } from "lucide-react";
 
 export default function Stage2() {
 	const [loading, setLoading] = useState(false);
@@ -48,15 +47,12 @@ export default function Stage2() {
 			return 0;
 		};
 
-		// Helper to check if object is a dish
 		const isDishObject = (obj) => {
 			if (!obj || typeof obj !== "object") return false;
 			return "dish_name" in obj || "description" in obj || "calories" in obj;
 		};
 
-		// Recursive function to extract nutritional values from nested structures
 		const extractNutrition = (item, acc) => {
-			// If it's a dish object, extract its nutrition
 			if (isDishObject(item)) {
 				const caloriesVal =
 					typeof item?.calories === "object"
@@ -72,14 +68,10 @@ export default function Stage2() {
 				acc.fats += parseNum(fatsVal);
 				return acc;
 			}
-
-			// If it's an object (like nested structures), traverse it
 			if (typeof item === "object" && !Array.isArray(item) && item !== null) {
 				Object.values(item).forEach(value => {
 					if (Array.isArray(value)) {
-						// For arrays, only process the first option (choice arrays)
 						if (value.length > 0) {
-							// Check if first item has nested items (combo structure)
 							if (value[0]?.items && Array.isArray(value[0].items)) {
 								value[0].items.forEach(nestedItem => extractNutrition(nestedItem, acc));
 							} else {
@@ -105,13 +97,11 @@ export default function Stage2() {
 		draft
 	}) {
 		try {
-			// check the conditions only if creation type is not a draft.
 			if (!draft) {
 				for (const field of ["title", "description"]) {
 					if (!Boolean(state[field]))
 						_throwError(`${field} - for the meal plan is required!`);
 				}
-
 				for (const day in state.selectedPlans) {
 					const dayPlan = normalizePlanForSave(state.selectedPlans[day]);
 					const mealTypesArray = Array.isArray(dayPlan) ? dayPlan : [];
@@ -264,79 +254,10 @@ export default function Stage2() {
 		}
 	}
 
-	const targetTotals = state.aiResponseRaw?.plan?.[state.selectedPlan]?.totals || state.aiResponseRaw?.plan?.daily?.totals || {};
-
-	const currentDailyTotals = useMemo(() => {
-		const plan = state.selectedPlans?.[state.selectedPlan] ?? [];
-		const planArray = Array.isArray(plan) ? plan : plan?.meals ?? [];
-		const parseNum = (val) => {
-			if (typeof val === "number") return Number.isFinite(val) ? val : 0;
-			if (typeof val === "string") {
-				const n = parseFloat(val.replace(/,/g, ""));
-				return Number.isFinite(n) ? n : 0;
-			}
-			return 0;
-		};
-
-		// Helper to check if object is a dish
-		const isDishObject = (obj) => {
-			if (!obj || typeof obj !== "object") return false;
-			return "dish_name" in obj || "description" in obj || "calories" in obj;
-		};
-
-		// Recursive function to extract nutritional values from nested structures
-		const extractNutrition = (item, acc) => {
-			// If it's a dish object, extract its nutrition
-			if (isDishObject(item)) {
-				const caloriesVal = typeof item?.calories === "object" ? item?.calories?.total : item?.calories;
-				const proteinVal = item?.protein ?? item?.calories?.proteins;
-				const carbsVal = item?.carbohydrates ?? item?.calories?.carbs;
-				const fatsVal = item?.fats ?? item?.calories?.fats;
-
-				acc.calories += parseNum(caloriesVal);
-				acc.protein += parseNum(proteinVal);
-				acc.carbohydrates += parseNum(carbsVal);
-				acc.fats += parseNum(fatsVal);
-				return acc;
-			}
-
-			// If it's an object (like nested structures), traverse it
-			if (typeof item === "object" && !Array.isArray(item) && item !== null) {
-				Object.values(item).forEach(value => {
-					if (Array.isArray(value)) {
-						// For arrays, only process the first option (choice arrays)
-						if (value.length > 0) {
-							// Check if first item has nested items (combo structure)
-							if (value[0]?.items && Array.isArray(value[0].items)) {
-								value[0].items.forEach(nestedItem => extractNutrition(nestedItem, acc));
-							} else {
-								extractNutrition(value[0], acc);
-							}
-						}
-					} else if (typeof value === "object" && value !== null) {
-						extractNutrition(value, acc);
-					}
-				});
-			}
-
-			return acc;
-		};
-
-		return planArray.reduce((acc, mealType) => {
-			const firstOption = Array.isArray(mealType?.meals) ? mealType.meals[0] : null;
-			if (!firstOption) return acc;
-			const dishes = Array.isArray(firstOption?.dishes) ? firstOption.dishes : [];
-			dishes.forEach(dish => extractNutrition(dish, acc));
-			return acc;
-		}, { calories: 0, protein: 0, carbohydrates: 0, fats: 0 });
-	}, [state.selectedPlans, state.selectedPlan]);
-
-	const pending = {
-		calories: (targetTotals.calories || 0) - currentDailyTotals.calories,
-		protein: (targetTotals.protein || 0) - currentDailyTotals.protein,
-		fats: (targetTotals.fats || 0) - currentDailyTotals.fats,
-		carbohydrates: (targetTotals.carbohydrates || 0) - currentDailyTotals.carbohydrates
-	};
+	const targetTotals = 
+    state.aiResponseRaw?.plan?.[state.selectedPlan]?.totals ||
+    state.aiResponseRaw?.plan?.daily?.totals ||
+    {};
 
 	return (
 		<div>
@@ -345,9 +266,9 @@ export default function Stage2() {
 					plan={state.selectedPlans[state.selectedPlan]}
 					target={targetTotals}
 				/>
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-0 md:divide-x-2">
+				<div className="">
 					<CustomMealMetaData />
-					<div className="md:pl-8">
+					<div className="md:pl-2">
 						{component}
 						<SelectMeals
 							key={`${state.selectedPlan}${state.selectedMealType}`}

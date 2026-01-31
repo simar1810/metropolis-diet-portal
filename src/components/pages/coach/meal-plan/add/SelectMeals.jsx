@@ -82,7 +82,7 @@ export default function SelectMeals() {
       </DndContext>
       <SaveMealType type="new" />
     </div>
-    <div className="mt-2 flex flex-col gap-4">
+    <div className="mt-2 grid grid-cols-2 gap-4">
       {selectedMealTypeRecipee.map(item => <MealTypeListingView
         mealType={item}
         key={item.optionType}
