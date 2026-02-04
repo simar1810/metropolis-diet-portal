@@ -44,7 +44,7 @@ export default function AppSidebar() {
   console.log(accountType)
 
   let sidebarItems = sidebar__coachContent;
-  if (accountType === "user") {
+  if (accountType !== "user") {
     sidebarItems = sidebarItems.filter(item => [1].includes(item.id))
   }
 
