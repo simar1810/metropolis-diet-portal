@@ -15,7 +15,6 @@ import { sendData, uploadImage } from "@/lib/api";
 import { useSWRConfig } from "swr";
 import { useRouter } from "next/navigation";
 import { _throwError, format24hr_12hr } from "@/lib/formatter";
-import { SquarePen } from "lucide-react";
 
 export default function Stage2() {
 	const [loading, setLoading] = useState(false);
@@ -48,15 +47,12 @@ export default function Stage2() {
 			return 0;
 		};
 
-		// Helper to check if object is a dish
 		const isDishObject = (obj) => {
 			if (!obj || typeof obj !== "object") return false;
 			return "dish_name" in obj || "description" in obj || "calories" in obj;
 		};
 
-		// Recursive function to extract nutritional values from nested structures
 		const extractNutrition = (item, acc) => {
-			// If it's a dish object, extract its nutrition
 			if (isDishObject(item)) {
 				const caloriesVal =
 					typeof item?.calories === "object"
@@ -72,14 +68,10 @@ export default function Stage2() {
 				acc.fats += parseNum(fatsVal);
 				return acc;
 			}
-
-			// If it's an object (like nested structures), traverse it
 			if (typeof item === "object" && !Array.isArray(item) && item !== null) {
 				Object.values(item).forEach(value => {
 					if (Array.isArray(value)) {
-						// For arrays, only process the first option (choice arrays)
 						if (value.length > 0) {
-							// Check if first item has nested items (combo structure)
 							if (value[0]?.items && Array.isArray(value[0].items)) {
 								value[0].items.forEach(nestedItem => extractNutrition(nestedItem, acc));
 							} else {
@@ -105,13 +97,11 @@ export default function Stage2() {
 		draft
 	}) {
 		try {
-			// check the conditions only if creation type is not a draft.
 			if (!draft) {
 				for (const field of ["title", "description"]) {
 					if (!Boolean(state[field]))
 						_throwError(`${field} - for the meal plan is required!`);
 				}
-
 				for (const day in state.selectedPlans) {
 					const dayPlan = normalizePlanForSave(state.selectedPlans[day]);
 					const mealTypesArray = Array.isArray(dayPlan) ? dayPlan : [];
@@ -264,79 +254,10 @@ export default function Stage2() {
 		}
 	}
 
-	const targetTotals = state.aiResponseRaw?.plan?.[state.selectedPlan]?.totals || state.aiResponseRaw?.plan?.daily?.totals || {};
-
-	const currentDailyTotals = useMemo(() => {
-		const plan = state.selectedPlans?.[state.selectedPlan] ?? [];
-		const planArray = Array.isArray(plan) ? plan : plan?.meals ?? [];
-		const parseNum = (val) => {
-			if (typeof val === "number") return Number.isFinite(val) ? val : 0;
-			if (typeof val === "string") {
-				const n = parseFloat(val.replace(/,/g, ""));
-				return Number.isFinite(n) ? n : 0;
-			}
-			return 0;
-		};
-
-		// Helper to check if object is a dish
-		const isDishObject = (obj) => {
-			if (!obj || typeof obj !== "object") return false;
-			return "dish_name" in obj || "description" in obj || "calories" in obj;
-		};
-
-		// Recursive function to extract nutritional values from nested structures
-		const extractNutrition = (item, acc) => {
-			// If it's a dish object, extract its nutrition
-			if (isDishObject(item)) {
-				const caloriesVal = typeof item?.calories === "object" ? item?.calories?.total : item?.calories;
-				const proteinVal = item?.protein ?? item?.calories?.proteins;
-				const carbsVal = item?.carbohydrates ?? item?.calories?.carbs;
-				const fatsVal = item?.fats ?? item?.calories?.fats;
-
-				acc.calories += parseNum(caloriesVal);
-				acc.protein += parseNum(proteinVal);
-				acc.carbohydrates += parseNum(carbsVal);
-				acc.fats += parseNum(fatsVal);
-				return acc;
-			}
-
-			// If it's an object (like nested structures), traverse it
-			if (typeof item === "object" && !Array.isArray(item) && item !== null) {
-				Object.values(item).forEach(value => {
-					if (Array.isArray(value)) {
-						// For arrays, only process the first option (choice arrays)
-						if (value.length > 0) {
-							// Check if first item has nested items (combo structure)
-							if (value[0]?.items && Array.isArray(value[0].items)) {
-								value[0].items.forEach(nestedItem => extractNutrition(nestedItem, acc));
-							} else {
-								extractNutrition(value[0], acc);
-							}
-						}
-					} else if (typeof value === "object" && value !== null) {
-						extractNutrition(value, acc);
-					}
-				});
-			}
-
-			return acc;
-		};
-
-		return planArray.reduce((acc, mealType) => {
-			const firstOption = Array.isArray(mealType?.meals) ? mealType.meals[0] : null;
-			if (!firstOption) return acc;
-			const dishes = Array.isArray(firstOption?.dishes) ? firstOption.dishes : [];
-			dishes.forEach(dish => extractNutrition(dish, acc));
-			return acc;
-		}, { calories: 0, protein: 0, carbohydrates: 0, fats: 0 });
-	}, [state.selectedPlans, state.selectedPlan]);
-
-	const pending = {
-		calories: (targetTotals.calories || 0) - currentDailyTotals.calories,
-		protein: (targetTotals.protein || 0) - currentDailyTotals.protein,
-		fats: (targetTotals.fats || 0) - currentDailyTotals.fats,
-		carbohydrates: (targetTotals.carbohydrates || 0) - currentDailyTotals.carbohydrates
-	};
+	const targetTotals =
+		state.aiResponseRaw?.plan?.[state.selectedPlan]?.totals ||
+		state.aiResponseRaw?.plan?.daily?.totals ||
+		{};
 
 	return (
 		<div>
@@ -345,9 +266,9 @@ export default function Stage2() {
 					plan={state.selectedPlans[state.selectedPlan]}
 					target={targetTotals}
 				/>
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-0 md:divide-x-2">
+				<div className="">
 					<CustomMealMetaData />
-					<div className="md:pl-8">
+					<div className="md:pl-2">
 						{component}
 						<SelectMeals
 							key={`${state.selectedPlan}${state.selectedMealType}`}
@@ -412,6 +333,12 @@ function normalizePlanForSave(plan) {
 	}));
 }
 
+function getLengthOfDishes(meals) {
+	const totalDishesValue = meals.reduce((acc, item) => acc + (item.dishes?.length || 0), 0)
+	return (isNaN(totalDishesValue) || totalDishesValue === 0)
+		? 1 : totalDishesValue
+}
+
 function MealPlanStats({ plan, target }) {
 	const currentTotals = useMemo(() => {
 		const planArray = Array.isArray(plan) ? plan : plan?.meals ?? [];
@@ -425,35 +352,27 @@ function MealPlanStats({ plan, target }) {
 			return 0;
 		};
 
-		// Helper to check if object is a dish
 		const isDishObject = (obj) => {
 			if (!obj || typeof obj !== "object") return false;
 			return "dish_name" in obj || "description" in obj || "calories" in obj;
 		};
 
-		// Recursive function to extract nutritional values from nested structures
 		const extractNutrition = (item, acc) => {
-			// If it's a dish object, extract its nutrition
 			if (isDishObject(item)) {
 				const caloriesVal = typeof item?.calories === "object" ? item?.calories?.total : item?.calories;
 				const proteinVal = item?.protein ?? item?.calories?.proteins;
 				const carbsVal = item?.carbohydrates ?? item?.calories?.carbs;
 				const fatsVal = item?.fats ?? item?.calories?.fats;
-
 				acc.calories += parseNum(caloriesVal);
 				acc.protein += parseNum(proteinVal);
 				acc.carbohydrates += parseNum(carbsVal);
 				acc.fats += parseNum(fatsVal);
 				return acc;
 			}
-
-			// If it's an object (like nested structures), traverse it
 			if (typeof item === "object" && !Array.isArray(item) && item !== null) {
 				Object.values(item).forEach(value => {
 					if (Array.isArray(value)) {
-						// For arrays, only process the first option (choice arrays)
 						if (value.length > 0) {
-							// Check if first item has nested items (combo structure)
 							if (value[0]?.items && Array.isArray(value[0].items)) {
 								value[0].items.forEach(nestedItem => extractNutrition(nestedItem, acc));
 							} else {
@@ -465,17 +384,87 @@ function MealPlanStats({ plan, target }) {
 					}
 				});
 			}
-
 			return acc;
 		};
-
 		return planArray.reduce((acc, mealType) => {
-			// Use the first option for calculation as it represents the default/primary choice
-			const firstOption = Array.isArray(mealType?.meals) ? mealType.meals[0] : null;
-			if (!firstOption) return acc;
+			const totals = { calories: 0, protein: 0, carbohydrates: 0, fats: 0 }
+			let totalDishes = 1
+			const callback = (dishes) => dishes.forEach(dish => extractNutrition(dish, totals));
+			if ([
+				"when_you_wake_up", "before_breakfast", "post_lunch_snack",
+				"evening_snack", "after_dinner", "before_sleep", "mid_day_meal"
+			].includes(mealType.mealType)) {
+				totalDishes = getLengthOfDishes(mealType.meals);
+				callback(mealType.meals)
+			}
+			else if (["breakfast"].includes(mealType.mealType)) {
+				const mandatoryOption = mealType
+					.meals
+					.find(({ optionType }) => optionType === "base");
+				callback([mandatoryOption])
+				totalDishes = getLengthOfDishes(mandatoryOption.dishes);
+			}
+			else if (["lunch"].includes(mealType.mealType)) {
+				const saladTotals = { calories: 0, protein: 0, carbohydrates: 0, fats: 0 };
+				const saladOptions = mealType
+					?.meals
+					?.find(({ optionType }) => optionType === "option_1");
+				const saladOptionsLength = getLengthOfDishes(saladOptions.dishes);
+				saladOptions.dishes.forEach(dish => extractNutrition(dish, saladTotals));
+				acc.calories += parseInt(parseNum(saladTotals.calories) / saladOptionsLength);
+				acc.protein += parseInt(parseNum(saladTotals.protein) / saladOptionsLength);
+				acc.carbohydrates += parseInt(parseNum(saladTotals.carbohydrates) / saladOptionsLength);
+				acc.fats += parseInt(parseNum(saladTotals.fats) / saladOptionsLength);
 
-			const dishes = Array.isArray(firstOption?.dishes) ? firstOption.dishes : [];
-			dishes.forEach(dish => extractNutrition(dish, acc));
+				const vegetableOptions = mealType
+					?.meals
+					?.find(({ optionType }) => optionType === "option_2");
+
+				const vegetableTotals = { calories: 0, protein: 0, carbohydrates: 0, fats: 0 };
+				const vegetableOptionsLength = getLengthOfDishes(vegetableOptions.dishes);
+				vegetableOptions.dishes.forEach(dish => extractNutrition(dish, saladTotals));
+				acc.calories += parseInt(parseNum(vegetableTotals.calories) / vegetableOptionsLength);
+				acc.protein += parseInt(parseNum(vegetableTotals.protein) / vegetableOptionsLength);
+				acc.carbohydrates += parseInt(parseNum(vegetableTotals.carbohydrates) / vegetableOptionsLength);
+				acc.fats += parseInt(parseNum(vegetableTotals.fats) / vegetableOptionsLength);
+
+				const filteredMeals = mealType
+					?.meals
+					?.filter(({ optionType }) => !["option_1", "option_2"].includes(optionType));
+				const filteredTotals = { calories: 0, protein: 0, carbohydrates: 0, fats: 0 };
+				const filteredLength = getLengthOfDishes(filteredMeals);
+				filteredMeals.forEach(item => {
+					item.dishes.forEach(dish => extractNutrition(dish, filteredTotals));
+				});
+				vegetableOptions.dishes.forEach(dish => extractNutrition(dish, saladTotals));
+				acc.calories += parseInt(parseNum(filteredTotals.calories) / filteredLength);
+				acc.protein += parseInt(parseNum(filteredTotals.protein) / filteredLength);
+				acc.carbohydrates += parseInt(parseNum(filteredTotals.carbohydrates) / filteredLength);
+				acc.fats += parseInt(parseNum(filteredTotals.fats) / filteredLength);
+			}
+			else if (["dinner"].includes(mealType.mealType)) {
+				const combo1Totals = { calories: 0, protein: 0, carbohydrates: 0, fats: 0 };
+				const combo2Totals = { calories: 0, protein: 0, carbohydrates: 0, fats: 0 };
+				const [combo1Options, combo2Options] = mealType
+					?.meals
+					?.at(0)
+					?.dishes
+				combo1Options.dishes.forEach(dish => extractNutrition(dish, combo1Totals));
+				combo2Options.dishes.forEach(dish => extractNutrition(dish, combo2Totals));
+				acc.calories += parseInt((parseNum(combo1Totals.calories) + parseNum(combo2Totals.calories)) / 2);
+				acc.protein += parseInt((parseNum(combo1Totals.protein) + parseNum(combo2Totals.protein)) / 2);
+				acc.carbohydrates += parseInt((parseNum(combo1Totals.carbohydrates) + parseNum(combo2Totals.carbohydrates)) / 2);
+				acc.fats += parseInt((parseNum(combo1Totals.fats) + parseNum(combo2Totals.fats)) / 2);
+
+
+				const otherMeals = mealType.meals.filter((_, idx) => idx !== 0)
+				totalDishes = getLengthOfDishes(mealType.meals);
+				callback(otherMeals)
+			}
+			acc.calories += parseInt(parseNum(totals.calories) / totalDishes);
+			acc.protein += parseInt(parseNum(totals.protein) / totalDishes);
+			acc.carbohydrates += parseInt(parseNum(totals.carbohydrates) / totalDishes);
+			acc.fats += parseInt(parseNum(totals.fats) / totalDishes);
 			return acc;
 		}, { calories: 0, protein: 0, carbohydrates: 0, fats: 0 });
 	}, [plan]);
@@ -485,13 +474,10 @@ function MealPlanStats({ plan, target }) {
 		return diff;
 	};
 
-	// Helper to render a stat block
 	const renderStat = (label, current, target) => {
 		const diff = getDiff(current, target);
 		const isDeficit = diff > 0;
-		// If no target, just show current
 		if (!target) return <div>{current.toFixed(2)} {label}</div>;
-
 		return (
 			<div className="flex flex-col gap-1">
 				<div className="flex justify-between items-center">

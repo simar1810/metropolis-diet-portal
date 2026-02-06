@@ -10,14 +10,14 @@ import { useRef } from "react";
 export default function CustomMealMetaData() {
   const { dispatch, ...state } = useCurrentStateContext()
   const fileRef = useRef()
-  return <div className="md:pr-8 flex flex-col gap-y-4">
+  return <div className="md:pr-8 mb-8 flex flex-col gap-y-4">
     <FormControl
       value={state.title}
       onChange={e => dispatch(customWorkoutUpdateField("title", e.target.value))}
       placeholder="Enter title"
       label="Title"
     />
-    <div>
+    {/*<div>
       <Label className="font-bold mb-2">Thumbnail</Label>
       <Image
         src={state.file ? getObjectUrl(state.file) : state.thumbnail || "/not-found.png"}
@@ -64,7 +64,7 @@ export default function CustomMealMetaData() {
         label="Supplements"
         className="min-h-[120px]"
       />
-    </div>
+    </div>*/}
     {state.mode === "monthly" && <div>
       <Label className="font-bold mb-2">Number Of Days</Label>
       <FormControl

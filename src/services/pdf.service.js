@@ -199,6 +199,7 @@ export class PdfService {
 
 
   static buildScheduleMealsHtml(meals) {
+    console.log(meals.find(m => (m.mealType || "").toLowerCase().includes("dinner")), "Dinner Section Meals");
 
     const normalizedMeals =
       PdfService.normalizePlanTableMealsForRendering(meals);
@@ -278,7 +279,12 @@ export class PdfService {
     const renderSlot = (meal, mealType) => {
       const options = (meal.meals || []).filter(Boolean);
 
-      const allDishes = options.flatMap((opt) => opt.dishes || []);
+      // === NORMAL CATEGORY LOGIC (FOR NON-COMBO ITEMS) ===
+      // Filter out combo units from the dishes list
+      const allDishes = options.flatMap(o => {
+        if (!Array.isArray(o.dishes)) return [];
+        return o.dishes.filter(d => d.optionType !== "combo_choose_any_1");
+      });
 
       const timeCandidate =
         allDishes.find((d) => d.meal_time)?.meal_time || "";
@@ -295,7 +301,9 @@ export class PdfService {
       }
 
 
-      const isLunch = label === "LUNCH" || rawType.includes("lunch");
+      // Exclude post_lunch variations from being treated as lunch
+      const isPostLunchVariant = ["post_lunch", "postlunch"].some(t => rawType.includes(t));
+      const isLunch = !isPostLunchVariant && (label === "LUNCH" || rawType.includes("lunch"));
       const isDinner = label === "DINNER" || rawType.includes("dinner");
 
       let contentHtml = "";
@@ -304,6 +312,80 @@ export class PdfService {
       const isSingleColumn = ["wake_up", "when_you_wake_up", "wakeup", "pre_wakeup", "pre_breakfast", "early_morning", "before_breakfast"].some(t => rawType.includes(t));
 
       if (isLunch || isDinner) {
+
+        // === COMBO RENDERING LOGIC ===
+        // Scan for nested combos within options
+        const comboUnits = [];
+        const nonComboDishes = []; // To store dishes that are not combo units
+        options.forEach(opt => {
+          if (Array.isArray(opt.dishes)) {
+            opt.dishes.forEach(d => {
+              if (d.optionType === "combo_choose_any_1" && Array.isArray(d.dishes)) {
+                comboUnits.push(d);
+              } else {
+                nonComboDishes.push(d);
+              }
+            });
+          }
+        });
+
+        if (comboUnits.length > 0) {
+          contentHtml += `
+                   <div style="margin-bottom: 20px;">
+                      <div style="background: linear-gradient(to right, #5cb85c, #aed581); color: white; text-align: center; font-weight: bold; padding: 8px; border-radius: 8px; margin-bottom: 15px; font-size: 18px; page-break-after: avoid; break-after: avoid;">
+                        Choose Any 1 Combo
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 20px;">
+               `;
+
+          comboUnits.forEach((comboUnit, idx) => {
+            const comboDishes = comboUnit.dishes || [];
+            if (!comboDishes.length) return;
+
+            // Calculate Total Nutrition for the Combo
+            let totalCal = 0, totalProt = 0, totalCarbs = 0, totalFats = 0;
+            comboDishes.forEach(d => {
+              totalCal += parseFloat(d.calories || 0);
+              totalProt += parseFloat(d.protein || 0);
+              totalCarbs += parseFloat(d.carbohydrates || d.carbs || 0);
+              totalFats += parseFloat(d.fats || 0);
+            });
+
+            contentHtml += `
+                      <div style="border: 1px solid #ddd; border-radius: 12px; padding: 15px; background-color: #ffff;">
+                          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                               <div style="font-weight: bold; color: #4CAF50; font-size: 16px;">
+                                  Combo ${idx + 1} (Eat All Together)
+                               </div>
+                               <div style="font-size: 12px; color: #666; font-weight: bold;">
+                                  Total: ${Math.round(totalCal)} kcal | P: ${Math.round(totalProt)}g | C: ${Math.round(totalCarbs)}g | F: ${Math.round(totalFats)}g
+                               </div>
+                          </div>
+                          
+                          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                   `;
+
+            comboDishes.forEach((d) => {
+              contentHtml += `
+                         <div style="display: flex; flex-direction: column;">
+                             ${dishCard(d, true).replace(/<div style="">/, '<div style="flex: 1;">')}
+                         </div>
+                       `;
+            });
+
+            contentHtml += `
+                          </div>
+                      </div>
+                   `;
+          });
+
+          contentHtml += `
+                      </div>
+                   </div>
+               `;
+        }
+
+        const possibleRegularDishes = nonComboDishes; // Use the filtered dishes
 
         const renderGroupHelper = (title, dishes) => {
           if (!dishes || dishes.length === 0) return "";
@@ -331,49 +413,72 @@ export class PdfService {
               `;
         };
 
-        const groupedDishes = {
-          "Salad Options (Choose Any 1 Option)": [],
-          "Accompaniments Options (Choose Any 1 Option)": [],
-          "Roti/Rice & Sides Options (Choose Any 1 Option)": [],
-          "Vegetable/Dal & Curries Options (Choose Any 1 Option)": [],
-          "Other": []
-        };
 
-        const saladKeywords = ["salad", "kachumber", "greens", "kosambari", "slaw", "lettuce"];
-        const accompanimentsKeywords = ["raita", "curd", "yogurt", "chutney", "pickle", "dahi", "buttermilk", "chaas", "dip", "sauce", "hummus", "salsa", "guacamole", "soup", "shorba"];
-        const rotiKeywords = ["roti", "rice", "bhaat", "khichdi", "pulao", "biryani", "chapati", "phulka", "bhakri", "thepla", "paratha", "naan", "kulcha", "rotla", "bread", "toast", "sandwich", "wrap", "frankie", "taco", "quesadilla", "dosa", "idli", "uttapam", "quinoa", "oats", "poha", "upma"];
-        const sabziKeywords = ["sabzi", "bharta", "subzi", "curry", "saag", "korma", "dal", "daal", "amti", "kadhi", "gravy", "paneer", "kofta", "bhaji", "bhindi", "tofu", "stir-fry", "masala", "vegetable", "veg", "aloo", "gobi", "gobhi", "corn", "mushroom", "soya", "rajma", "chana", "chole", "lobia", "matar", "mutter", "palak", "methi", "baingan", "capsicum", "egg", "chicken", "fish", "mutton", "meat", "cheela", "chilla", "besan", "spinach", "fenugreek", "gawar", "cluster bean", "lentil", "legume", "bean", "cabbage"];
 
-        for (const dish of allDishes) {
-          const name = (dish.dish_name || "").toLowerCase();
-          const desc = (dish.description || "").toLowerCase();
-          const text = name + " " + desc;
+        if (possibleRegularDishes.length > 0) {
+          const groupedDishes = {
+            "salad": [],
+            "accompaniments": [],
+            "roti_rice": [],
+            "vegetable_dal": [],
+            "other": []
+          };
 
-          const hasKeyword = (keywords) => keywords.some(k => text.includes(k));
+          // Category display names
+          const categoryNames = {
+            "salad": "Salad",
+            "accompaniments": "Accompaniments",
+            "roti_rice": "Roti/Rice & Sides",
+            "vegetable_dal": "Vegetable/Dal & Curries",
+            "other": "Other"
+          };
 
-          if (hasKeyword(rotiKeywords)) {
-            groupedDishes["Roti/Rice & Sides Options (Choose Any 1 Option)"].push(dish);
-          } else if (hasKeyword(saladKeywords)) {
-            groupedDishes["Salad Options (Choose Any 1 Option)"].push(dish);
-          } else if (hasKeyword(accompanimentsKeywords)) {
-            groupedDishes["Accompaniments Options (Choose Any 1 Option)"].push(dish);
-          } else if (hasKeyword(sabziKeywords)) {
-            groupedDishes["Vegetable/Dal & Curries Options (Choose Any 1 Option)"].push(dish);
-          } else {
-            groupedDishes["Other"].push(dish);
+          // Helper to generate dynamic title based on item count
+          const getDynamicTitle = (category, dishes) => {
+            if (!dishes || dishes.length === 0) return null;
+            const baseName = categoryNames[category];
+            if (dishes.length === 1) {
+              return baseName;
+            }
+            return `${baseName} Options (Choose Any 1 Option)`;
+          };
+
+          const saladKeywords = ["salad", "kachumber", "greens", "kosambari", "slaw", "lettuce"];
+          const accompanimentsKeywords = ["raita", "curd", "yogurt", "chutney", "pickle", "dahi", "buttermilk", "chaas", "dip", "sauce", "hummus", "salsa", "guacamole", "soup", "shorba"];
+          const rotiKeywords = ["roti", "rice", "bhaat", "khichdi", "pulao", "biryani", "chapati", "phulka", "bhakri", "thepla", "paratha", "naan", "kulcha", "rotla", "bread", "toast", "sandwich", "wrap", "frankie", "taco", "quesadilla", "dosa", "idli", "uttapam", "quinoa", "oats", "poha", "upma"];
+          const sabziKeywords = ["sabzi", "bharta", "subzi", "curry", "saag", "korma", "dal", "daal", "amti", "kadhi", "gravy", "paneer", "kofta", "bhaji", "bhindi", "tofu", "stir-fry", "masala", "vegetable", "veg", "aloo", "gobi", "gobhi", "corn", "mushroom", "soya", "rajma", "chana", "chole", "lobia", "matar", "mutter", "palak", "methi", "baingan", "capsicum", "egg", "chicken", "fish", "mutton", "meat", "cheela", "chilla", "besan", "spinach", "fenugreek", "gawar", "cluster bean", "lentil", "legume", "bean", "cabbage"];
+
+          for (const dish of possibleRegularDishes) {
+            const name = (dish.dish_name || "").toLowerCase();
+            const desc = (dish.description || "").toLowerCase();
+            const text = name + " " + desc;
+
+            const hasKeyword = (keywords) => keywords.some(k => text.includes(k));
+
+            if (hasKeyword(rotiKeywords)) {
+              groupedDishes["roti_rice"].push(dish);
+            } else if (hasKeyword(saladKeywords)) {
+              groupedDishes["salad"].push(dish);
+            } else if (hasKeyword(accompanimentsKeywords)) {
+              groupedDishes["accompaniments"].push(dish);
+            } else if (hasKeyword(sabziKeywords)) {
+              groupedDishes["vegetable_dal"].push(dish);
+            } else {
+              groupedDishes["other"].push(dish);
+            }
           }
-        }
 
-        contentHtml += renderGroupHelper("Salad Options (Choose Any 1 Option)", groupedDishes["Salad Options (Choose Any 1 Option)"]);
-        contentHtml += renderGroupHelper("Accompaniments Options (Choose Any 1 Option)", groupedDishes["Accompaniments Options (Choose Any 1 Option)"]);
-        contentHtml += renderGroupHelper("Roti/Rice & Sides Options (Choose Any 1 Option)", groupedDishes["Roti/Rice & Sides Options (Choose Any 1 Option)"]);
-        contentHtml += renderGroupHelper("Vegetable/Dal & Curries Options (Choose Any 1 Option)", groupedDishes["Vegetable/Dal & Curries Options (Choose Any 1 Option)"]);
+          // Render each category with dynamic titles
+          contentHtml += renderGroupHelper(getDynamicTitle("salad", groupedDishes["salad"]), groupedDishes["salad"]);
+          contentHtml += renderGroupHelper(getDynamicTitle("accompaniments", groupedDishes["accompaniments"]), groupedDishes["accompaniments"]);
+          contentHtml += renderGroupHelper(getDynamicTitle("roti_rice", groupedDishes["roti_rice"]), groupedDishes["roti_rice"]);
+          contentHtml += renderGroupHelper(getDynamicTitle("vegetable_dal", groupedDishes["vegetable_dal"]), groupedDishes["vegetable_dal"]);
 
-
-        const others = groupedDishes["Other"];
-        if (others.length > 0) {
-          const title = others.length > 1 ? "Choose Any 1 Option" : "Option";
-          contentHtml += renderGroupHelper(title, others);
+          const others = groupedDishes["other"];
+          if (others.length > 0) {
+            const title = others.length > 1 ? "Other Options (Choose Any 1 Option)" : "Other";
+            contentHtml += renderGroupHelper(title, others);
+          }
         }
 
       } else if (!isSingleColumn) {
@@ -401,11 +506,43 @@ export class PdfService {
             `;
         };
 
-        if (options.length > 1) {
-          const title = "Choose Any 1 Option";
-          contentHtml = renderGroupHelper(title, allDishes);
+        // Check if this is post lunch snack
+        const isPostLunchSnack = ["post_lunch_snack", "post_lunch", "postlunch"].some(t => rawType.includes(t));
+
+        if (isPostLunchSnack) {
+          // Post lunch snack: Show "Snacks (Choose Any 1)" for multiple items, "Snack" for single
+          const snackTitle = allDishes.length > 1 ? "Snacks (Choose Any 1)" : "Snack";
+          contentHtml = renderGroupHelper(snackTitle, allDishes);
         } else {
-          contentHtml = renderGroupHelper(null, allDishes);
+          // Dynamic rendering: Show "base" separately, rest under "Choose Any 1 Option"
+          const baseOption = options.find(opt =>
+            opt.optionType?.toLowerCase() === "base"
+          );
+          const chooseAnyOptions = options.filter(opt =>
+            opt.optionType?.toLowerCase() !== "base"
+          );
+
+          const baseDishes = baseOption?.dishes || [];
+          const chooseAnyDishes = chooseAnyOptions.flatMap(opt => opt.dishes || []);
+
+          // Check if this is breakfast section for "Beverage" heading
+          const isBreakfast = rawType.includes("breakfast");
+
+          // Render base dishes first (with "Beverage" header for breakfast, no header otherwise)
+          if (baseDishes.length > 0) {
+            const baseTitle = isBreakfast ? "Beverage" : null;
+            contentHtml += renderGroupHelper(baseTitle, baseDishes);
+          }
+
+          // Render remaining options under "Choose Any 1 Option" header
+          if (chooseAnyDishes.length > 0) {
+            contentHtml += renderGroupHelper("Choose Any 1 Option", chooseAnyDishes);
+          }
+
+          // Fallback: if no options matched, render all dishes without header
+          if (baseDishes.length === 0 && chooseAnyDishes.length === 0 && allDishes.length > 0) {
+            contentHtml = renderGroupHelper(null, allDishes);
+          }
         }
       } else {
 
@@ -476,10 +613,16 @@ export class PdfService {
         const isAfterDinner = ["after_dinner", "post_dinner"].some(t => rawType1.includes(t));
 
         const isLargeSection = [
+          "breakfast",
           "lunch",
           "dinner",
           "mid_day_meal",
-          "midday_meal"
+          "midday_meal",
+          "before_sleep",
+          "pre_sleep",
+          "evening_snack",
+          "snack",
+          "after_dinner"
         ].some(t => rawType1.includes(t));
 
         if (isLargeSection) {
@@ -641,8 +784,13 @@ export class PdfService {
               } else if (subKey.includes("choose_any") || subKey.includes("options")) {
                 if (Array.isArray(subContent)) {
                   subContent.forEach((item, idx) => {
+                    // Preserve original optionType if it exists in the item
+                    const originalOptionType = item?.optionType;
                     let dishes = Array.isArray(item) ? item : (item.dishes || [item]);
-                    options.push({ optionType: `${subKey} Option ${idx + 1}`, dishes });
+                    options.push({
+                      optionType: originalOptionType || `${subKey} Option ${idx + 1}`,
+                      dishes
+                    });
                   });
                 }
               } else {

@@ -35,48 +35,17 @@ import Loader from "./Loader";
 import useClickOutside from "@/hooks/useClickOutside";
 import ContentError from "./ContentError";
 import { useAppSelector } from "@/providers/global/hooks";
-import PendingClientClubDataModal from "../modals/client/PendingClientClubDataModal";
-import { DialogTrigger } from "../ui/dialog";
-import { useSWRConfig } from "swr";
 import { SearchBar } from "./AppNavbar";
-import { isCoach, getUserType, getUserPermissions } from "@/lib/permissions";
 import AddClientWithCheckup from "../modals/add-client/AddClientWithCheckup";
 
 export default function AppSidebar() {
   const [Modal, setModal] = useState();
-  const { organisation, features, clubType } = useAppSelector((state) => state.coach.data);
+  const { accountType = "coach" } = useAppSelector((state) => state.coach.data);
 
   let sidebarItems = sidebar__coachContent;
-  if (!features.includes(3)) sidebarItems = sidebarItems.filter(item => item.id !== 13)
-  // Wallet is now available for all organizations
-  if (organisation !== "Herbalife") sidebarItems = sidebarItems.filter(item => item.id !== 7);
-  if (!features.includes(4)) sidebarItems = sidebarItems.filter(item => item.id !== 6);
-  if (!features.includes(5) && !["Club Leader", "Club Leader Jr", "Club Captain"].includes(clubType)) {
-    sidebarItems = sidebarItems.filter(item => item.id !== 14);
+  if (accountType !== "user") {
+    sidebarItems = sidebarItems.filter(item => [1].includes(item.id))
   }
-
-  // Filter sidebar items based on user permissions
-  sidebarItems = sidebarItems.filter(item => {
-    // If no permission specified, always show
-    if (!item.permission) return true;
-
-    // If permission is "coach", only show for coaches
-    if (item.permission === "coach") return isCoach();
-
-    // If permission is a number, check if user has that permission
-    if (typeof item.permission === "number") {
-      const userType = getUserType();
-      if (userType === "coach") return true; // Coaches see everything
-      if (userType === "user") {
-        const userPermissions = getUserPermissions();
-        return userPermissions.includes(item.permission);
-      }
-    }
-
-    return false;
-  });
-  if (!features.includes(3)) sidebarItems = sidebarItems.filter(item => item.id !== 13);
-  if (!features.includes(6)) sidebarItems = sidebarItems.filter(item => item.id !== 15);
 
   return (
     <Sidebar className="w-[204px] bg-[var(--dark-4)] pl-2 pr-0 border-r-1">
