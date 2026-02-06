@@ -9,19 +9,21 @@ import { Button } from "@/components/ui/button"
 import { previousStep } from "../state/client-onboarding-reducer"
 import { ArrowLeft } from "lucide-react"
 import CountryRegionSelector from "./CountryRegionSelector"
+import LoginUser from "./LoginUser"
+import ClientSelection from "./ClientSelection"
 
 export default function RegisterUserContainer() {
   const { dispatch, stage } = useCurrentStateContext()
-  return <div className="bg-gray-100 mt-10 max-w-[500px] mx-auto border-1 rounded-[10px] overflow-clip">
+  return <div className="bg-gray-100 h-[7 0vh] mt-10 max-w-[500px] mx-auto border-1 rounded-[10px] overflow-clip">
     <div className="p-4 h-16 flex items-center gap-4 text-white bg-green-900">
-      {!["mobilenumber"].includes(stage) && <Button
+      {!["login"].includes(stage) && <Button
         variant="icon"
         onClick={() => dispatch(previousStep())}
         className="px-[2px] h-[32px] w-[32px] !rounded-full aspect-square bg-black"
       >
         <ArrowLeft className="!w-[24px] !h-[24px] text-white" />
       </Button>}
-      <h4 className="grow text-center">Client Preferences</h4>
+      <h4 className="grow text-center">Register User</h4>
     </div>
     <div className="p-4">
       <NestedComponent />
@@ -31,6 +33,8 @@ export default function RegisterUserContainer() {
 
 function NestedComponent() {
   const { stage } = useCurrentStateContext()
+  if (stage === "login") return <LoginUser />
+  if (stage === "client-selection") return <ClientSelection />
   if (stage === "mobilenumber") return <PersonalDetails />
   if (stage === "goal") return <GoalStage />
   if (stage === "gender-dob") return <GenderDobForm />

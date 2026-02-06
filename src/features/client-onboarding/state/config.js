@@ -1,10 +1,10 @@
 export const GOALS = [
   { label: "WEIGHT LOSS", value: "Weight loss", icon: "/assets/PNG/weight.png" },
-  { label: "MUSCLE BUILDING", value: "Muscle building", icon: "/assets/PNG/muscle.png" },
+  { label: "MUSCLE BUILDING", value: "Muscle building", icon: "/muscle-building-building.svg" },
   { label: "LEAN BODY ( MAINTAIN PHYSIQUE )", value: "Lean body", icon: "/assets/PNG/slim.png" },
-  { label: "MANAGE DIABETES", value: "Manage Diabetes", icon: "/assets/SVG/BMI.svg" },
-  { label: "MANAGE PCOS", value: "Manage PCOS", icon: "/assets/SVG/body.svg" },
-  { label: "MANAGE CHOLESTEROL", value: "Manage Cholesterol", icon: "/assets/SVG/fat.svg" },
+  { label: "MANAGE DIABETES", value: "Manage Diabetes", icon: "/manage-diabetes-white.svg" },
+  { label: "MANAGE PCOS", value: "Manage PCOS", icon: "/manage-pcos-white.svg" },
+  { label: "MANAGE CHOLESTEROL", value: "Manage Cholesterol", icon: "/cholesterol-white.svg" },
   { label: "HEALTHY LIFESTYLE", value: "Healthy lifestyle", icon: "/assets/SVG/person.svg" },
 ];
 

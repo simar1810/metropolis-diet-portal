@@ -4,15 +4,33 @@ import NextButton from "./NextButton";
 import { updateDetails } from "../state/client-onboarding-reducer";
 import { ACTIVITY_LEVELS } from "../state/config";
 import { cn } from "@/lib/utils";
+import { sendData } from "@/lib/api";
 
 export default function ExerciseActivity() {
-  const { dispatch, dailyActivity } = useCurrentStateContext()
+  const { dispatch, dailyActivity, selectedClientDetails, ...state } = useCurrentStateContext()
   const [selected, onSelect] = useState(dailyActivity)
-  const handleNext = function () {
+  const [loading, setLoading] = useState(false);
+
+  const handleNext = async function () {
+    setLoading(true)
+    const cdpData = {}
+    try {
+      const response = await sendData("app/metropolis/cdp/getProfile", {
+        mobileNumber: state.mobileNumber,
+        metropolisPid: selectedClientDetails?.pid,
+        name: selectedClientDetails?.name || selectedClientDetails?.firstName
+      })
+      console.log(response)
+      if (Array.isArray(response?.others)) {
+        cdpData.medicalConditions = response?.others.join(", ")
+      }
+    } catch (error) { }
     dispatch(updateDetails({
       dailyActivity: selected,
+      medicalConditions: `${state.medicalConditions}, ${cdpData.medicalConditions}` || "",
       stage: "conditions-allergies"
     }))
+    setLoading(false)
   }
   return <div className="flex flex-col items-center pt-2">
     <div className="flex flex-wrap justify-center gap-2 mb-8">
@@ -34,6 +52,6 @@ export default function ExerciseActivity() {
     <p className="text-center text-[#00984A] font-bold text-base">
       {selected ? `Level: ${selected}` : "Select a level to continue."}
     </p>
-    <NextButton handler={handleNext} />
+    <NextButton disabled={loading} handler={handleNext} />
   </div>
 }

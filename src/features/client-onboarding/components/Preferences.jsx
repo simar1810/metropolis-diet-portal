@@ -4,13 +4,14 @@ import useCurrentStateContext from "@/providers/CurrentStateContext";
 import { useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import NextButton from "./NextButton";
-import { createRequestPayload, updateDetails } from "../state/client-onboarding-reducer";
+import { updateDetails } from "../state/client-onboarding-reducer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { convertHeight, convertWeight } from "../state/lib";
 import { toast } from "sonner";
-import { sendData } from "@/lib/api";
+import { sendData, sendDataAI } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { buildAIMealGeneratePayload, buildCoreIntegrationPayload, buildUpdateClientPreferences, createRequestPayload, } from "../state/request-payload";
 
 export default function Preferences() {
   const {
@@ -61,9 +62,14 @@ export default function Preferences() {
   const weightValue = useMemo(() => {
     return weight?.replace(/[^\d.]/g, "").trim() || "";
   }, [weight]);
-
+  console.log(state)
   async function createUser() {
     try {
+      state.dietPreferences = preferences;
+      state.height = height;
+      state.heightUnit = heightUnit;
+      state.weight = weight;
+      state.weightUnit = weightUnit;
       const customCreationToastId = toast.loading("Creating Customer")
 
       const preferencesData = createRequestPayload({
@@ -75,18 +81,48 @@ export default function Preferences() {
         weightUnit,
       })
 
-      const createCustomerResponse = await sendData(
-        "app/metropolis/new-client",
-        {
-          firstName: state.firstName,
-          name: state.lastName,
-          mobileNumber: state.mobileNumber,
-          preferences: preferencesData
-        }
+      // const createCustomerResponse = await sendData(
+      //   "app/metropolis/new-client",
+      //   {
+      //     firstName: state.firstName,
+      //     name: state.lastName,
+      //     mobileNumber: state.mobileNumber,
+      //     preferences: preferencesData
+      //   }
+      // )
+
+      const updatePreferencesPayload = buildUpdateClientPreferences(state)
+
+      // update the customer relation
+      await sendData(
+        "app/metropolis/customer/relation",
+        updatePreferencesPayload,
+        "PUT"
       )
+
+      // hit the payment-successfull endpoint
+      const paymentSuccessfullPayload = {
+        "metropolisPid": state.selectedClientDetails.pid,
+        "metropolisPid": "metro_123456",
+        "effectivePrice": 499,
+        "originalPrice": 499
+      }
+      await sendData("app/metropolis/payment-successfull", paymentSuccessfullPayload, "POST")
+
+      // generate meal plan endpoint
+      const aiMealGeneratePayload = buildAIMealGeneratePayload(state);
+      await sendDataAI(
+        `meal-plan/ai/generate?clientId=${state?.selectedClientDetails?.pid}`,
+        aiMealGeneratePayload
+      )
+
+      // core-integration endpoint
+      const coreIntegrationPayload = buildCoreIntegrationPayload(state)
+      await sendData("app/metropolis/core-integration", coreIntegrationPayload)
+
       toast.dismiss(customCreationToastId)
-      if (createCustomerResponse.status_code !== 200) throw new Error(createCustomerResponse.message)
-      window.location.href = "/coach/clients"
+      // if (createCustomerResponse.status_code !== 200) throw new Error(createCustomerResponse.message)
+      // window.location.href = "/coach/clients"
     } catch (error) {
       toast.error(error.message || "Something went wrong!");
     }

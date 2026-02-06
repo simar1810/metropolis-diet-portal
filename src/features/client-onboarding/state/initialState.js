@@ -1,7 +1,6 @@
 export const buildClientOnboardingIS = function () {
   return {
-    stage: "mobilenumber", // mobilenumber, goal, gender-dob, exercise-activity, conditions-allergies
-
+    stage: "login", // login, mobilenumber, goal, gender-dob, exercise-activity, conditions-allergies, region-selection, preferences
     firstName: "",
     lastName: "",
     // email: "",
@@ -19,5 +18,7 @@ export const buildClientOnboardingIS = function () {
     dietPreferences: "",
     countryPreference: "",
     regionPreference: "",
+    clientsList: [],
+    coachId: "",
   }
 }

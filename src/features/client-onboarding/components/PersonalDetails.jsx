@@ -3,6 +3,8 @@ import useCurrentStateContext from "@/providers/CurrentStateContext";
 import { useState } from "react";
 import NextButton from "./NextButton";
 import { updateDetails } from "../state/client-onboarding-reducer";
+import { sendData } from "@/lib/api";
+import { toast } from "sonner";
 
 const validateDetails = (details) => {
   const errors = {}
@@ -32,21 +34,34 @@ export default function PersonalDetails() {
   const [details, setDetails] = useState({
     firstName: state.firstName,
     lastName: state.lastName,
-    mobileNumber: state.mobileNumber
+    mobileNumber: ""
   })
 
-  const handleNext = function () {
-    const errors = validateDetails(details)
-    if (Object.keys(errors).length > 0) {
-      setErrors(errors)
-      return
-    } else {
-      setErrors({})
+  const handleNext = async function () {
+    const toastId = toast.loading("Creating User");
+    try {
+      const createCustomerResponse = await sendData(
+        "app/metropolis/customer/relation",
+        {
+          coachId: state.coachId,
+          firstName: details.firstName,
+          name: details.lastName,
+          mobileNumber: details.mobileNumber,
+          // preferences: preferencesData
+        }
+      );
+      const pid = createCustomerResponse?.data?.pid;
+      dispatch(updateDetails({
+        ...details,
+        selectedClientDetails: {
+          pid
+        },
+        stage: "goal"
+      }));
+    } catch (error) {
+      toast.error(error.message || "Something went wrong.");
     }
-    dispatch(updateDetails({
-      ...details,
-      stage: "goal"
-    }))
+    toast.dismiss(toastId);
   }
 
   return <div>

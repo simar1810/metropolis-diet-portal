@@ -11,7 +11,6 @@ export default function Page() {
       state={buildClientOnboardingIS()}
       reducer={clientOnboardingReducer}
     >
-      <h4>Register Client</h4>
       <RegisterUserContainer />
     </CurrentStateProvider>
   </div>
