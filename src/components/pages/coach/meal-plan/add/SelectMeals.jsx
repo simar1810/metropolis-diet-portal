@@ -25,6 +25,7 @@ export default function SelectMeals() {
   const plan = Array.isArray(rawPlan) ? rawPlan : rawPlan?.meals ?? [];
 
   const mealTypes = plan.map(m => m.mealType);
+
   const selectedMealTypeRecipee = plan.find(m => m.mealType === selectedMealType)?.meals || [];
   const errorMessage = !mealTypes
     ? "Please select a date"
@@ -167,43 +168,48 @@ function MealTypeButton({ type, isSelected }) {
   );
 }
 
+function getSectionTitle(selectedMealType = "", optionType) {
+  if (selectedMealType?.toLowerCase() === "lunch") {
+    if (optionType === "option_1") return "Salad Options (Choose Any 1 Option)";
+    if (optionType === "option_2") return "Vegetable/Dal & Curries Options (Choose Any 1 Option)";
+    if (optionType === "option_3") return "Roti/Rice & Sides";
+    if (optionType === "option_4") return "Accompaniments";
+  }
+  if (selectedMealType?.toLowerCase() === "dinner") {
+    if (optionType === "option_2") return "Salad Options (Choose Any 1 Option)";
+    if (optionType === "option_3") return "Vegetable/Dal & Curries Options (Choose Any 1 Option)";
+  }
+  snakeCaseToTitleCase(optionType)
+}
+
 function MealTypeListingView({ mealType }) {
-  const { dispatch } = useCurrentStateContext();
+  const { dispatch, selectedMealType } = useCurrentStateContext();
   const optionType = mealType?.optionType || "option_1";
   const dishes = Array.isArray(mealType?.dishes) ? mealType.dishes : [];
-  const label = snakeCaseToTitleCase(optionType);
+  const label = getSectionTitle(selectedMealType, optionType)
   const hasDishes = dishes.length > 0;
-
-  // Helper function to check if an object is a dish (has dish-like properties)
   const isDishObject = (obj) => {
     if (!obj || typeof obj !== "object") return false;
     return "dish_name" in obj || "description" in obj || "calories" in obj;
   };
 
-  // Helper function to check if this is a nested structure object
   const isNestedStructure = (obj) => {
     if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
     const keys = Object.keys(obj);
-    // Check if keys contain patterns like "choose_any", "roti", "base", etc.
     return keys.some(key =>
       key.includes("choose") ||
       key === "roti" ||
       key === "base" ||
       key.includes("raita") ||
       key.includes("curd") ||
-      key === "items" // for combo structures
+      key === "items"
     );
   };
 
-  // Recursive function to render dishes, handling nested structures
   const renderDishes = (dishData, path) => {
-    // If it's a simple dish object, render it
     if (isDishObject(dishData)) {
-      // Create a unique key based on the path
       const uniqueKey = path.join("-");
-      // Use the last element of the path as the index for display purposes if it's a number
       const displayIndex = typeof path[path.length - 1] === 'number' ? path[path.length - 1] : 0;
-
       return (
         <div key={uniqueKey} className="flex items-center gap-4">
           <EditSelectedMealDetails
@@ -223,17 +229,13 @@ function MealTypeListingView({ mealType }) {
       );
     }
 
-    // If it's a nested structure object (like lunch/dinner with salad_choose_any_1, etc.)
     if (isNestedStructure(dishData)) {
-      // Use the index from the path if available, or a fallback
       const nestedKey = path.length > 0 ? path.join("-") : "root";
 
       return (
         <div key={`nested-${nestedKey}`} className="space-y-4 pl-4 border-l-2 border-gray-200">
           {Object.entries(dishData).map(([key, value]) => {
             const sectionLabel = snakeCaseToTitleCase(key);
-
-            // Handle arrays (choose options)
             if (Array.isArray(value)) {
               return (
                 <div key={`${uniqueId}-${key}-section`} className="space-y-2">
@@ -248,7 +250,6 @@ function MealTypeListingView({ mealType }) {
                   </div>
                   <div className="space-y-2">
                     {value.map((item, idx) => {
-                      // Check if item has nested items (for combo structure)
                       if (item.items && Array.isArray(item.items)) {
                         return (
                           <div key={`${key}-${idx}`} className="space-y-2 pl-2 border-l border-blue-200">
@@ -265,8 +266,6 @@ function MealTypeListingView({ mealType }) {
                 </div>
               );
             }
-
-            // Handle single dish objects (like roti, raita)
             if (isDishObject(value)) {
               return (
                 <div key={`${uniqueId}-${key}-single`} className="space-y-2">
@@ -277,14 +276,11 @@ function MealTypeListingView({ mealType }) {
                 </div>
               );
             }
-
             return null;
           })}
         </div>
       );
     }
-
-    // If it's none of the above, return null
     return null;
   };
 

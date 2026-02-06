@@ -41,7 +41,6 @@ import AddClientWithCheckup from "../modals/add-client/AddClientWithCheckup";
 export default function AppSidebar() {
   const [Modal, setModal] = useState();
   const { accountType = "coach" } = useAppSelector((state) => state.coach.data);
-  console.log(accountType)
 
   let sidebarItems = sidebar__coachContent;
   if (accountType !== "user") {

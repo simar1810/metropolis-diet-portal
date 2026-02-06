@@ -174,7 +174,7 @@ function CustomMealMetaData({ customPlan }) {
   const [pdfSent, setPdfSent] = useState(false);
   const [pdfFile, setPdfFile] = useState();
 
-  const handleSendPdf = async function() {
+  const handleSendPdf = async function () {
     const toastId = toast.loading("Generating meal plan pdf...");
     const payload = createMealPlanPdfPayload(
       customPlan,
@@ -365,8 +365,8 @@ function CustomMealsListing({
             key={index}
             onClick={() => onMealTypeChange?.(mealType.mealType)}
             className={`px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${mealType.mealType === selectedMealType
-                ? "bg-[#1A1A1A] text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              ? "bg-[#1A1A1A] text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
           >
             {snakeCaseToTitleCase(mealType.mealType)}
@@ -531,79 +531,7 @@ export function DeleteCustomMealPlan({ id }) {
   );
 }
 
-export function DisplayMealStats({ targetTotals, meals: { plans = {} } = {} }) {
-  const allMeals = useMemo(() => {
-    const arr = [];
-    for (const plan in plans) {
-      const p = plans[plan];
-      if (!p) continue;
-
-      if (Array.isArray(p)) {
-        for (const mealType of p) {
-          if (Array.isArray(mealType?.meals)) {
-            for (const opt of mealType.meals) {
-              if (Array.isArray(opt?.dishes))
-                arr.push(...flattenMealPlanDishes(opt.dishes));
-            }
-          }
-        }
-        continue;
-      }
-
-      if (p.daily && typeof p.daily === "object") {
-        const d = p.daily;
-        if (Array.isArray(d.breakfast)) arr.push(...d.breakfast);
-        if (Array.isArray(d.lunch)) arr.push(...d.lunch);
-        if (Array.isArray(d.dinner)) arr.push(...d.dinner);
-        if (Array.isArray(d.snacks)) arr.push(...d.snacks);
-        continue;
-      }
-      const days = [
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-        "saturday",
-        "sunday",
-      ];
-      const isWeekly = Object.keys(p).some((k) =>
-        days.includes(k.toLowerCase()),
-      );
-
-      if (isWeekly) {
-        for (const day of days) {
-          const dayPlan = p[day];
-          if (!dayPlan) continue;
-
-          if (Array.isArray(dayPlan.breakfast)) arr.push(...dayPlan.breakfast);
-          if (Array.isArray(dayPlan.lunch)) arr.push(...dayPlan.lunch);
-          if (Array.isArray(dayPlan.dinner)) arr.push(...dayPlan.dinner);
-          if (Array.isArray(dayPlan.snacks)) arr.push(...dayPlan.snacks);
-        }
-        continue;
-      }
-
-      if (p.meals && Array.isArray(p.meals)) {
-        for (const mealType of p.meals) {
-          if (Array.isArray(mealType?.meals)) {
-            for (const opt of mealType.meals) {
-              if (Array.isArray(opt?.dishes))
-                arr.push(...flattenMealPlanDishes(opt.dishes));
-            }
-          }
-        }
-        continue;
-      }
-
-      if (Array.isArray(p.breakfast)) arr.push(...p.breakfast);
-      if (Array.isArray(p.lunch)) arr.push(...p.lunch);
-      if (Array.isArray(p.dinner)) arr.push(...p.dinner);
-      if (Array.isArray(p.snacks)) arr.push(...p.snacks);
-    }
-    return arr;
-  }, [plans]);
-  const totals = targetTotals
+export function DisplayMealStats({ targetTotals: totals }) {
   return (
     <div className="bg-white px-4 py-3 border-b sticky top-0 z-10">
       <div className="max-w-7xl mx-auto flex flex-wrap gap-x-8 gap-y-2 items-center text-sm">
@@ -700,6 +628,8 @@ function createMealPlanPdfPayload(customPlan, userDetails = {}) {
       },
     },
   };
+
+
 
   planData.meals.forEach((mealGroup) => {
     const type = mealGroup.mealType;
